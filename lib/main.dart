@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; 
+import 'library_screen.dart'; // now the library screen is imported here, so we can use it as the home of our app.
 
 void main() {
   runApp(const FoqusApp());
@@ -26,35 +27,3 @@ class FoqusApp extends StatelessWidget {
   }
 }
 
-class LibraryScreen extends StatelessWidget {
-  const LibraryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Foqus',
-          style: TextStyle(
-            color: Color(0xFFE63946),
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 4,
-          ),
-        ),
-        backgroundColor: const Color(0xFF0A0A0A),
-        elevation: 0,
-      ),
-      body: const Center(
-        child: Text(
-          'Your library is empty.\nAdd a book to get started.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
-}
