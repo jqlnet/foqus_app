@@ -95,23 +95,40 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget buildWord(String word) {
     if (word.isEmpty) return const SizedBox();
 
+    // Strip punctuation for ORP calculation only
+    final cleanWord = word.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final calcWord = cleanWord.isEmpty ? word : cleanWord;
+
     int orpIndex;
-    if (word.length == 1) {
+    if (calcWord.length == 1) {
       orpIndex = 0;
-    } else if (word.length % 2 == 0) {
-      orpIndex = (word.length ~/ 2) - 1;
+    } else if (calcWord.length % 2 == 0) {
+      orpIndex = (calcWord.length ~/ 2) - 1;
     } else {
-      orpIndex = word.length ~/ 2;
+      orpIndex = calcWord.length ~/ 2;
     }
 
-    final before = word.substring(0, orpIndex);
-    final focus = word[orpIndex];
-    final after = word.substring(orpIndex + 1);
+    // Find the ORP character in the original word
+    int actualOrpIndex = 0;
+    int cleanCount = 0;
+    for (int i = 0; i < word.length; i++) {
+      if (RegExp(r'[a-zA-Z0-9]').hasMatch(word[i])) {
+        if (cleanCount == orpIndex) {
+          actualOrpIndex = i;
+          break;
+        }
+        cleanCount++;
+      }
+    }
+
+    final before = word.substring(0, actualOrpIndex);
+    final focus = word[actualOrpIndex];
+    final after = word.substring(actualOrpIndex + 1);
 
     const style = TextStyle(
       fontSize: 48,
       fontWeight: FontWeight.w400,
-      fontFamily: null,
+      fontFamily: 'monospace',
       height: 1.0,
     );
 
