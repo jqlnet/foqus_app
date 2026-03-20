@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
 import 'dart:io';
+import 'reader_screen.dart';
 
 class ChapterScreen extends StatefulWidget {
   final String filePath;
@@ -28,7 +29,8 @@ class _ChapterScreenState extends State<ChapterScreen> {
       final chapterList = book.Chapters;
 
       setState(() {
-        chapters = chapterList
+        chapters =
+            chapterList
                 ?.where((c) => c.Title != null)
                 .map((c) => c.Title!)
                 .toList() ??
@@ -61,33 +63,41 @@ class _ChapterScreenState extends State<ChapterScreen> {
       ),
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFE63946),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFFE63946)),
             )
           : chapters.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No chapters found.',
-                    style: TextStyle(color: Colors.white38),
+          ? const Center(
+              child: Text(
+                'No chapters found.',
+                style: TextStyle(color: Colors.white38),
+              ),
+            )
+          : ListView.builder(
+              itemCount: chapters.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(
+                    chapters[index],
+                    style: const TextStyle(color: Colors.white),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: chapters.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(
-                        chapters[index],
-                        style: const TextStyle(color: Colors.white),
+                  leading: const Icon(
+                    Icons.article_outlined,
+                    color: Color(0xFFE63946),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReaderScreen(
+                          filePath: widget.filePath,
+                          chapterIndex: index,
+                        ),
                       ),
-                      leading: const Icon(
-                        Icons.article_outlined,
-                        color: Color(0xFFE63946),
-                      ),
-                      onTap: () {},
                     );
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }
