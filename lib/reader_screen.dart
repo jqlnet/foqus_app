@@ -95,7 +95,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget buildWord(String word) {
     if (word.isEmpty) return const SizedBox();
 
-    // Find the ORP (optimal recognition point) - middle letter, or n-1 for even
     int orpIndex;
     if (word.length == 1) {
       orpIndex = 0;
@@ -109,35 +108,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final focus = word[orpIndex];
     final after = word.substring(orpIndex + 1);
 
-    return RichText(
-      text: TextSpan(
-        children: [
-          TextSpan(
-            text: before,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 48,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-          TextSpan(
-            text: focus,
-            style: const TextStyle(
-              color: Color(0xFFE63946),
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: after,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 48,
-              fontWeight: FontWeight.w300,
-            ),
-          ),
-        ],
-      ),
+    const style = TextStyle(
+      fontSize: 48,
+      fontWeight: FontWeight.w400,
+      fontFamily: null,
+      height: 1.0,
+    );
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(before, style: style.copyWith(color: Colors.white)),
+        Text(focus, style: style.copyWith(color: const Color(0xFFE63946))),
+        Text(after, style: style.copyWith(color: Colors.white)),
+      ],
     );
   }
 
@@ -146,145 +132,163 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        title: const Text(
-          'FOQUS',
-          style: TextStyle(
-            color: Color(0xFFE63946),
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 3,
-          ),
-        ),
         backgroundColor: const Color(0xFF0A0A0A),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        title: RichText(
+          text: const TextSpan(
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 3,
+            ),
+            children: [
+              TextSpan(
+                text: 'FO',
+                style: TextStyle(color: Colors.white),
+              ),
+              TextSpan(
+                text: 'Q',
+                style: TextStyle(color: Color(0xFFE63946)),
+              ),
+              TextSpan(
+                text: 'US',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
       ),
       body: isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFFE63946)),
             )
           : words.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No text found in this chapter.',
-                    style: TextStyle(color: Colors.white38),
+          ? const Center(
+              child: Text(
+                'No text found in this chapter.',
+                style: TextStyle(color: Colors.white38),
+              ),
+            )
+          : Column(
+              children: [
+                // Word display area
+                Expanded(child: Center(child: buildWord(words[currentIndex]))),
+
+                // Progress indicator
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: LinearProgressIndicator(
+                    value: words.isEmpty ? 0 : currentIndex / words.length,
+                    backgroundColor: Colors.white12,
+                    color: const Color(0xFFE63946),
                   ),
-                )
-              : Column(
-                  children: [
-                    // Word display area
-                    Expanded(
-                      child: Center(
-                        child: buildWord(words[currentIndex]),
-                      ),
-                    ),
-
-                    // Progress indicator
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: LinearProgressIndicator(
-                        value: words.isEmpty
-                            ? 0
-                            : currentIndex / words.length,
-                        backgroundColor: Colors.white12,
-                        color: const Color(0xFFE63946),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // WPM slider
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'WPM',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                          Expanded(
-                            child: Slider(
-                              value: wpm.toDouble(),
-                              min: 100,
-                              max: 800,
-                              divisions: 14,
-                              activeColor: const Color(0xFFE63946),
-                              inactiveColor: Colors.white12,
-                              onChanged: (val) {
-                                setState(() {
-                                  wpm = val.round();
-                                });
-                                if (isPlaying) {
-                                  pauseReading();
-                                  startReading();
-                                }
-                              },
-                            ),
-                          ),
-                          Text(
-                            '$wpm',
-                            style: const TextStyle(color: Colors.white54),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Controls
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 40),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Rewind 10 words
-                          IconButton(
-                            icon: const Icon(Icons.replay_10,
-                                color: Colors.white54, size: 36),
-                            onPressed: () {
-                              setState(() {
-                                currentIndex =
-                                    (currentIndex - 10).clamp(0, words.length - 1);
-                              });
-                            },
-                          ),
-
-                          const SizedBox(width: 24),
-
-                          // Play/Pause
-                          GestureDetector(
-                            onTap: isPlaying ? pauseReading : startReading,
-                            child: Container(
-                              width: 64,
-                              height: 64,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE63946),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 24),
-
-                          // Skip 10 words
-                          IconButton(
-                            icon: const Icon(Icons.forward_10,
-                                color: Colors.white54, size: 36),
-                            onPressed: () {
-                              setState(() {
-                                currentIndex =
-                                    (currentIndex + 10).clamp(0, words.length - 1);
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
+
+                const SizedBox(height: 16),
+
+                // WPM slider
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'WPM',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: wpm.toDouble(),
+                          min: 100,
+                          max: 800,
+                          divisions: 14,
+                          activeColor: const Color(0xFFE63946),
+                          inactiveColor: Colors.white12,
+                          onChanged: (val) {
+                            setState(() {
+                              wpm = val.round();
+                            });
+                            if (isPlaying) {
+                              pauseReading();
+                              startReading();
+                            }
+                          },
+                        ),
+                      ),
+                      Text(
+                        '$wpm',
+                        style: const TextStyle(color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Controls
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 40),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Rewind 10 words
+                      IconButton(
+                        icon: const Icon(
+                          Icons.replay_10,
+                          color: Colors.white54,
+                          size: 36,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            currentIndex = (currentIndex - 10).clamp(
+                              0,
+                              words.length - 1,
+                            );
+                          });
+                        },
+                      ),
+
+                      const SizedBox(width: 24),
+
+                      // Play/Pause
+                      GestureDetector(
+                        onTap: isPlaying ? pauseReading : startReading,
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE63946),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 36,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 24),
+
+                      // Skip 10 words
+                      IconButton(
+                        icon: const Icon(
+                          Icons.forward_10,
+                          color: Colors.white54,
+                          size: 36,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            currentIndex = (currentIndex + 10).clamp(
+                              0,
+                              words.length - 1,
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
