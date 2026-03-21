@@ -44,16 +44,54 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final chapter = book.Chapters?[widget.chapterIndex];
       final content = chapter?.HtmlContent ?? '';
 
-      // Strip HTML tags and extract plain text
       final plainText = content
           .replaceAll(RegExp(r'<[^>]*>'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
 
-      final wordList = plainText
-          .split(' ')
-          .where((w) => w.trim().isNotEmpty)
+      final rawTokens = plainText
+          .split(RegExp(r'\s+'))
+          .map((w) => w.trim())
+          .where((w) => w.isNotEmpty)
           .toList();
+
+      final List<String> wordList = [];
+      final leadingQuoteRegex = RegExp(
+        r'^[\u201C\u201D\u0022\u0027\u2018\u2019]+',
+      );
+
+      for (var token in rawTokens) {
+        final m = leadingQuoteRegex.firstMatch(token);
+        if (m != null) {
+          final quotes = m.group(0)!;
+          wordList.add(quotes);
+          token = token.substring(quotes.length);
+          if (token.isEmpty) continue;
+        }
+
+        if (token.endsWith('kun') && token.contains('-')) {
+          final parts = token.split('-');
+          if (parts.length == 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+            wordList.add(parts[0]);
+            wordList.add('-');
+            wordList.add(parts[1]);
+            continue;
+          }
+        }
+
+        if (token.contains('-')) {
+          final segments = token.split('-');
+          for (int i = 0; i < segments.length; i++) {
+            final seg = segments[i];
+            if (seg.isEmpty) continue;
+            if (i > 0) wordList.add('-');
+            wordList.add(seg);
+          }
+          continue;
+        }
+
+        wordList.add(token);
+      }
 
       setState(() {
         words = wordList;
@@ -67,22 +105,41 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void startReading() {
-    final interval = Duration(milliseconds: (60000 / wpm).round());
-    timer = Timer.periodic(interval, (t) {
-      if (currentIndex < words.length - 1) {
+    timer?.cancel();
+
+    void scheduleNext() {
+      if (!mounted) return;
+
+      if (currentIndex >= words.length - 1) {
+        setState(() => isPlaying = false);
+        return;
+      }
+
+      final word = words[currentIndex];
+      int baseMs = (60000 / wpm).round();
+      int ms = baseMs;
+
+      if (word.endsWith('.') || word.endsWith('!') || word.endsWith('?')) {
+        ms = (baseMs * 2.0).round();
+      } else if (word.endsWith(',') ||
+          word.endsWith(';') ||
+          word.endsWith(':')) {
+        ms = (baseMs * 1.5).round();
+      } else if (word.length >= 8) {
+        ms = (baseMs * 1.3).round();
+      }
+
+      timer = Timer(Duration(milliseconds: ms), () {
+        if (!mounted) return;
         setState(() {
           currentIndex++;
         });
-      } else {
-        t.cancel();
-        setState(() {
-          isPlaying = false;
-        });
-      }
-    });
-    setState(() {
-      isPlaying = true;
-    });
+        scheduleNext();
+      });
+    }
+
+    setState(() => isPlaying = true);
+    scheduleNext();
   }
 
   void pauseReading() {
@@ -95,34 +152,122 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget buildWord(String word) {
     if (word.isEmpty) return const SizedBox();
 
-    int orpIndex;
-    if (word.length == 1) {
-      orpIndex = 0;
-    } else if (word.length % 2 == 0) {
-      orpIndex = (word.length ~/ 2) - 1;
-    } else {
-      orpIndex = word.length ~/ 2;
+    // Dynamic font size based on word length
+    double fontSize = 48;
+    if (word.length > 8 && word.length <= 11) {
+      fontSize = 38;
+    } else if (word.length > 11 && word.length <= 14) {
+      fontSize = 30;
+    } else if (word.length > 14) {
+      fontSize = 24;
     }
 
-    final before = word.substring(0, orpIndex);
-    final focus = word[orpIndex];
-    final after = word.substring(orpIndex + 1);
-
-    const style = TextStyle(
-      fontSize: 48,
+    final style = TextStyle(
+      fontSize: fontSize,
       fontWeight: FontWeight.w400,
-      fontFamily: null,
+      fontFamily: 'monospace',
       height: 1.0,
     );
+
+    const double sideWidth = 160;
+
+    // Short word fast-path
+    if (word.length <= 2) {
+      final mid = word.length == 1 ? 0 : 1;
+      final before = word.substring(0, mid);
+      final focus = word[mid];
+      final after = word.substring(mid + 1);
+
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: sideWidth,
+            child: Text(
+              before,
+              textAlign: TextAlign.right,
+              style: style.copyWith(color: Colors.white),
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+          Text(focus, style: style.copyWith(color: const Color(0xFFE63946))),
+          SizedBox(
+            width: sideWidth,
+            child: Text(
+              after,
+              textAlign: TextAlign.left,
+              style: style.copyWith(color: Colors.white),
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final punctuationRegex = RegExp(r"[a-zA-Z0-9\u0027\u2019\-]");
+
+    final cleanWord = word
+        .split('')
+        .where((c) => punctuationRegex.hasMatch(c))
+        .join();
+
+    final calcWord = cleanWord.isEmpty ? word : cleanWord;
+
+    int orpIndex;
+    if (calcWord.length == 1) {
+      orpIndex = 0;
+    } else if (calcWord.length % 2 == 0) {
+      orpIndex = (calcWord.length ~/ 2) - 1;
+    } else {
+      orpIndex = calcWord.length ~/ 2;
+    }
+
+    int? actualOrpIndex;
+    int cleanCount = 0;
+    for (int i = 0; i < word.length; i++) {
+      if (punctuationRegex.hasMatch(word[i])) {
+        if (cleanCount == orpIndex) {
+          actualOrpIndex = i;
+          break;
+        }
+        cleanCount++;
+      }
+    }
+
+    actualOrpIndex ??= (word.length ~/ 2).clamp(0, word.length - 1);
+
+    final before = word.substring(0, actualOrpIndex);
+    final focus = word[actualOrpIndex];
+    final after = word.substring(actualOrpIndex + 1);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(before, style: style.copyWith(color: Colors.white)),
+        SizedBox(
+          width: sideWidth,
+          child: Text(
+            before,
+            textAlign: TextAlign.right,
+            style: style.copyWith(color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+          ),
+        ),
         Text(focus, style: style.copyWith(color: const Color(0xFFE63946))),
-        Text(after, style: style.copyWith(color: Colors.white)),
+        SizedBox(
+          width: sideWidth,
+          child: Text(
+            after,
+            textAlign: TextAlign.left,
+            style: style.copyWith(color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+          ),
+        ),
       ],
     );
   }
@@ -172,10 +317,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             )
           : Column(
               children: [
-                // Word display area
                 Expanded(child: Center(child: buildWord(words[currentIndex]))),
-
-                // Progress indicator
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: LinearProgressIndicator(
@@ -184,10 +326,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     color: const Color(0xFFE63946),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // WPM slider
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
@@ -222,14 +361,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     ],
                   ),
                 ),
-
-                // Controls
                 Padding(
                   padding: const EdgeInsets.only(bottom: 40),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Rewind 10 words
                       IconButton(
                         icon: const Icon(
                           Icons.replay_10,
@@ -245,10 +381,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           });
                         },
                       ),
-
                       const SizedBox(width: 24),
-
-                      // Play/Pause
                       GestureDetector(
                         onTap: isPlaying ? pauseReading : startReading,
                         child: Container(
@@ -265,10 +398,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(width: 24),
-
-                      // Skip 10 words
                       IconButton(
                         icon: const Icon(
                           Icons.forward_10,
