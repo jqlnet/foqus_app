@@ -320,10 +320,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 Expanded(child: Center(child: buildWord(words[currentIndex]))),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: LinearProgressIndicator(
-                    value: words.isEmpty ? 0 : currentIndex / words.length,
-                    backgroundColor: Colors.white12,
-                    color: const Color(0xFFE63946),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: words.isEmpty
+                              ? 0
+                              : currentIndex / words.length,
+                          backgroundColor: Colors.white12,
+                          color: const Color(0xFFE63946),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        words.isEmpty
+                            ? '0%'
+                            : '${((currentIndex / words.length) * 100).round()}%',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -337,10 +355,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       ),
                       Expanded(
                         child: Slider(
+                          // the speed at which the reader goes through the words
                           value: wpm.toDouble(),
                           min: 100,
-                          max: 800,
-                          divisions: 14,
+                          max: 1000,
+                          divisions: 90,
                           activeColor: const Color(0xFFE63946),
                           inactiveColor: Colors.white12,
                           onChanged: (val) {
