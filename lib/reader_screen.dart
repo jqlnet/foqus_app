@@ -101,6 +101,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         isLoading = false;
       });
       await loadProgress();
+      await loadWpm();
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -145,6 +146,31 @@ class _ReaderScreenState extends State<ReaderScreen> {
         });
       }
     }
+  }
+
+  Future<void> loadWpm() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (doc.exists && doc.data()?['wpm'] != null) {
+      setState(() {
+        wpm = doc.data()!['wpm'] as int;
+      });
+    }
+  }
+
+  Future<void> saveWpm() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'wpm': wpm,
+    }, SetOptions(merge: true));
   }
 
   void startReading() {
@@ -410,6 +436,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             setState(() {
                               wpm = val.round();
                             });
+                            saveWpm();
                             if (isPlaying) {
                               pauseReading();
                               startReading();

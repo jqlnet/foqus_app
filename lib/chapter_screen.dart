@@ -24,6 +24,12 @@ class _ChapterScreenState extends State<ChapterScreen> {
     loadChapters();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    loadChapters();
+  }
+
   Future<void> loadChapters() async {
     try {
       final bytes = await File(widget.filePath).readAsBytes();
@@ -122,8 +128,8 @@ class _ChapterScreenState extends State<ChapterScreen> {
                     Icons.article_outlined,
                     color: Color(0xFFE63946),
                   ),
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ReaderScreen(
@@ -132,6 +138,7 @@ class _ChapterScreenState extends State<ChapterScreen> {
                         ),
                       ),
                     );
+                    loadChapters();
                   },
                 );
               },
