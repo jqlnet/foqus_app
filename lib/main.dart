@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'library_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-
+import 'library_screen.dart';
+import 'auth_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,23 @@ class FoqusApp extends StatelessWidget {
         ),
         fontFamily: 'serif',
       ),
-      home: const LibraryScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Color(0xFF0A0A0A),
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFFE63946)),
+              ),
+            );
+          }
+          if (snapshot.hasData) {
+            return const LibraryScreen();
+          }
+          return const AuthScreen();
+        },
+      ),
     );
   }
 }
