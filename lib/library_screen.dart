@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'chapter_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -17,7 +18,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
       type: FileType.custom,
       allowedExtensions: ['epub'],
     );
-
     if (result != null) {
       String? filePath = result.files.single.path;
       if (filePath != null) {
@@ -43,6 +43,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
         backgroundColor: const Color(0xFF0A0A0A),
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white38),
+            color: const Color(0xFF1a1a1a),
+            onSelected: (value) async {
+              if (value == 'logout') {
+                await FirebaseAuth.instance.signOut();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.white54, size: 18),
+                    SizedBox(width: 8),
+                    Text('Logout', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: books.isEmpty
           ? const Center(
@@ -62,7 +85,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ),
                   leading: const Icon(Icons.book, color: Color(0xFFE63946)),
                   onTap: () {
-                    print('tapped book: ${books[index]}');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
