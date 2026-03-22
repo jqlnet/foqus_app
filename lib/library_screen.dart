@@ -45,10 +45,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .set({'wpm': newWpm}, SetOptions(merge: true));
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'wpm': newWpm,
+    }, SetOptions(merge: true));
 
     setState(() {
       wpm = newWpm;
@@ -140,6 +139,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 'Average reader: 200-250 WPM',
                 style: TextStyle(color: Colors.white38, fontSize: 12),
               ),
+              const SizedBox(height: 4),
+              const Text(
+                'Experienced reader: 300-500 WPM',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Speed reader: 500+ WPM',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
             ],
           ),
           actions: [
@@ -225,71 +234,65 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: CircularProgressIndicator(color: Color(0xFFE63946)),
             )
           : books.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Your library is empty.\nAdd a book to get started.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white38, fontSize: 16),
+          ? const Center(
+              child: Text(
+                'Your library is empty.\nAdd a book to get started.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white38, fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                return Dismissible(
+                  key: Key(books[index]),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    color: const Color(0xFF1a0505),
+                    child: const Icon(Icons.delete, color: Color(0xFFE63946)),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: books.length,
-                  itemBuilder: (context, index) {
-                    return Dismissible(
-                      key: Key(books[index]),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 24),
-                        color: const Color(0xFF1a0505),
-                        child: const Icon(
-                          Icons.delete,
-                          color: Color(0xFFE63946),
-                        ),
-                      ),
-                      onDismissed: (direction) async {
-                        final user = FirebaseAuth.instance.currentUser;
-                        if (user == null) return;
+                  onDismissed: (direction) async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
 
-                        final snapshot = await FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(user.uid)
-                            .collection('books')
-                            .where('filePath', isEqualTo: books[index])
-                            .get();
+                    final snapshot = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('books')
+                        .where('filePath', isEqualTo: books[index])
+                        .get();
 
-                        for (var doc in snapshot.docs) {
-                          await doc.reference.delete();
-                        }
+                    for (var doc in snapshot.docs) {
+                      await doc.reference.delete();
+                    }
 
-                        await File(books[index]).delete();
+                    await File(books[index]).delete();
 
-                        setState(() {
-                          books.removeAt(index);
-                        });
-                      },
-                      child: ListTile(
-                        title: Text(
-                          books[index].split('/').last,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        leading: const Icon(
-                          Icons.book,
-                          color: Color(0xFFE63946),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ChapterScreen(filePath: books[index]),
-                            ),
-                          );
-                        },
-                      ),
-                    );
+                    setState(() {
+                      books.removeAt(index);
+                    });
                   },
-                ),
+                  child: ListTile(
+                    title: Text(
+                      books[index].split('/').last,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    leading: const Icon(Icons.book, color: Color(0xFFE63946)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ChapterScreen(filePath: books[index]),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: pickBook,
         backgroundColor: Colors.red,
