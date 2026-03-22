@@ -100,6 +100,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         words = wordList;
         isLoading = false;
       });
+      await loadProgress();
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -115,7 +116,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         .collection('users')
         .doc(user.uid)
         .collection('progress')
-        .doc('${widget.filePath}_${widget.chapterIndex}')
+        .doc('${widget.filePath.replaceAll('/', '_')}_${widget.chapterIndex}')
         .set({
           'wordIndex': currentIndex,
           'totalWords': words.length,
@@ -123,6 +124,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
           'chapterIndex': widget.chapterIndex,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+  }
+
+  Future<void> loadProgress() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('progress')
+        .doc('${widget.filePath.replaceAll('/', '_')}_${widget.chapterIndex}')
+        .get();
+
+    if (doc.exists) {
+      final data = doc.data();
+      if (data != null && data['wordIndex'] != null) {
+        setState(() {
+          currentIndex = data['wordIndex'] as int;
+        });
+      }
+    }
   }
 
   void startReading() {
