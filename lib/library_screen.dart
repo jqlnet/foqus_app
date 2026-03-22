@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'chapter_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -44,21 +46,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
 
     if (result != null) {
-      String? filePath = result.files.single.path;
-      if (filePath != null) {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) return;
+      String? tempPath = result.files.single.path;
+      if (tempPath == null) return;
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('books')
-            .add({'filePath': filePath});
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-        setState(() {
-          books.add(filePath);
-        });
-      }
+      // Copy file to permanent app storage
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = result.files.single.name;
+      final permanentPath = '${appDir.path}/$fileName';
+      await File(tempPath).copy(permanentPath);
+
+      // Save permanent path to Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('books')
+          .add({'filePath': permanentPath});
+
+      setState(() {
+        books.add(permanentPath);
+      });
     }
   }
 
