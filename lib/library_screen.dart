@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'chapter_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -12,15 +13,48 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   List<String> books = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadBooks();
+  }
+
+  Future<void> loadBooks() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('books')
+        .get();
+
+    setState(() {
+      books = snapshot.docs.map((doc) => doc['filePath'] as String).toList();
+      isLoading = false;
+    });
+  }
 
   Future<void> pickBook() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['epub'],
     );
+
     if (result != null) {
       String? filePath = result.files.single.path;
       if (filePath != null) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('books')
+            .add({'filePath': filePath});
+
         setState(() {
           books.add(filePath);
         });
@@ -67,7 +101,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ],
       ),
-      body: books.isEmpty
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFE63946)),
+            )
+          : books.isEmpty
           ? const Center(
               child: Text(
                 'Your library is empty.\nAdd a book to get started.',
