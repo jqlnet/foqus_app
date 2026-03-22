@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
 import 'dart:io';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ReaderScreen extends StatefulWidget {
   final String filePath;
@@ -34,6 +36,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void dispose() {
     timer?.cancel();
+    saveProgress();
     super.dispose();
   }
 
@@ -104,6 +107,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
   }
 
+  Future<void> saveProgress() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('progress')
+        .doc('${widget.filePath}_${widget.chapterIndex}')
+        .set({
+          'wordIndex': currentIndex,
+          'totalWords': words.length,
+          'filePath': widget.filePath,
+          'chapterIndex': widget.chapterIndex,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
   void startReading() {
     timer?.cancel();
 
@@ -144,6 +165,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void pauseReading() {
     timer?.cancel();
+    saveProgress();
     setState(() {
       isPlaying = false;
     });
