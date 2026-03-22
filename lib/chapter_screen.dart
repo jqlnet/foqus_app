@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'reader_screen.dart';
 
 class ChapterScreen extends StatefulWidget {
   final String filePath;
-
   const ChapterScreen({super.key, required this.filePath});
 
   @override
@@ -14,6 +15,7 @@ class ChapterScreen extends StatefulWidget {
 
 class _ChapterScreenState extends State<ChapterScreen> {
   List<String> chapters = [];
+  Map<int, int> chapterProgress = {};
   bool isLoading = true;
 
   @override
@@ -27,6 +29,32 @@ class _ChapterScreenState extends State<ChapterScreen> {
       final bytes = await File(widget.filePath).readAsBytes();
       final book = await EpubReader.readBook(bytes);
       final chapterList = book.Chapters;
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final progressSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('progress')
+            .get();
+
+        final Map<int, int> progress = {};
+        for (var doc in progressSnapshot.docs) {
+          final data = doc.data();
+          if (data['filePath'] == widget.filePath) {
+            final chapterIndex = data['chapterIndex'] as int;
+            final wordIndex = data['wordIndex'] as int;
+            final totalWords = data['totalWords'] as int;
+            if (totalWords > 0) {
+              progress[chapterIndex] = ((wordIndex / totalWords) * 100).round();
+            }
+          }
+        }
+
+        setState(() {
+          chapterProgress = progress;
+        });
+      }
 
       setState(() {
         chapters =
@@ -75,11 +103,21 @@ class _ChapterScreenState extends State<ChapterScreen> {
           : ListView.builder(
               itemCount: chapters.length,
               itemBuilder: (context, index) {
+                final progress = chapterProgress[index];
                 return ListTile(
                   title: Text(
                     chapters[index],
                     style: const TextStyle(color: Colors.white),
                   ),
+                  subtitle: progress != null && progress > 0
+                      ? Text(
+                          '$progress% completed',
+                          style: const TextStyle(
+                            color: Color(0xFFE63946),
+                            fontSize: 12,
+                          ),
+                        )
+                      : null,
                   leading: const Icon(
                     Icons.article_outlined,
                     color: Color(0xFFE63946),
