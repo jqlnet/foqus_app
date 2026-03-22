@@ -86,6 +86,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final appDir = await getApplicationDocumentsDirectory();
       final fileName = result.files.single.name;
       final permanentPath = '${appDir.path}/$fileName';
+
+      if (books.contains(permanentPath)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This book is already in your library!'),
+          ),
+        );
+        return;
+      }
+
       await File(tempPath).copy(permanentPath);
 
       await FirebaseFirestore.instance
@@ -254,6 +264,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     child: const Icon(Icons.delete, color: Color(0xFFE63946)),
                   ),
                   onDismissed: (direction) async {
+                    final removedBook = books[index];
+
+                    setState(() {
+                      books.removeAt(index);
+                    });
+
                     final user = FirebaseAuth.instance.currentUser;
                     if (user == null) return;
 
@@ -261,18 +277,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         .collection('users')
                         .doc(user.uid)
                         .collection('books')
-                        .where('filePath', isEqualTo: books[index])
+                        .where('filePath', isEqualTo: removedBook)
                         .get();
 
                     for (var doc in snapshot.docs) {
                       await doc.reference.delete();
                     }
 
-                    await File(books[index]).delete();
-
-                    setState(() {
-                      books.removeAt(index);
-                    });
+                    await File(removedBook).delete();
                   },
                   child: ListTile(
                     title: Text(
