@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart'; 
-import 'library_screen.dart'; // now the library screen is imported here, so we can use it as the home of our app.
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'library_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const FoqusApp());
 }
 
@@ -26,4 +29,3 @@ class FoqusApp extends StatelessWidget {
     );
   }
 }
-
