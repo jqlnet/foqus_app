@@ -125,21 +125,54 @@ class _LibraryScreenState extends State<LibraryScreen> {
           : ListView.builder(
               itemCount: books.length,
               itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(
-                    books[index].split('/').last,
-                    style: const TextStyle(color: Colors.white),
+                return Dismissible(
+                  key: Key(books[index]),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    color: const Color(0xFF1a0505),
+                    child: const Icon(Icons.delete, color: Color(0xFFE63946)),
                   ),
-                  leading: const Icon(Icons.book, color: Color(0xFFE63946)),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ChapterScreen(filePath: books[index]),
-                      ),
-                    );
+                  onDismissed: (direction) async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
+
+                    // Delete from Firestore
+                    final snapshot = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('books')
+                        .where('filePath', isEqualTo: books[index])
+                        .get();
+
+                    for (var doc in snapshot.docs) {
+                      await doc.reference.delete();
+                    }
+
+                    // Delete local file
+                    await File(books[index]).delete();
+
+                    setState(() {
+                      books.removeAt(index);
+                    });
                   },
+                  child: ListTile(
+                    title: Text(
+                      books[index].split('/').last,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    leading: const Icon(Icons.book, color: Color(0xFFE63946)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ChapterScreen(filePath: books[index]),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
