@@ -1,4 +1,4 @@
-package com.example.foqus_app
+package com.jqlne.foqus
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -52,9 +52,3 @@ android {
 flutter {
     source = "../.."
 }
-```
-
-Then run:
-```
-flutter clean
-flutter build appbundle --release
