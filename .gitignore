@@ -46,6 +46,7 @@ app.*.map.json
 
 # Firebase
 android/app/google-services.json
+lib/firebase_options.dart
 
 # Keystore files
 android/app/foqus_upload_key.jks

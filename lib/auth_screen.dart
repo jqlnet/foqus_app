@@ -59,6 +59,53 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> forgotPassword() async {
+    if (emailController.text.trim().isEmpty) {
+      setState(() {
+        errorMessage = 'Please enter your email address first.';
+      });
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: emailController.text.trim(),
+      );
+      setState(() {
+        errorMessage = '';
+      });
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1a1a1a),
+            title: const Text(
+              'Email sent!',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Text(
+              'A password reset link has been sent to ${emailController.text.trim()}',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(color: Color(0xFFE63946)),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        errorMessage = e.message ?? 'An error occurred';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,6 +168,22 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
               ),
+              if (isLogin) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: forgotPassword,
+                    child: const Text(
+                      'Forgot password?',
+                      style: TextStyle(
+                        color: Color(0xFFE63946),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               if (errorMessage.isNotEmpty)
                 Text(
