@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -32,10 +33,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool isLoading = true;
   int wpm = 250;
   Timer? timer;
+  late Color bgColor;
+  late Color orpColor;
+  late Color textColor;
 
   @override
   void initState() {
     super.initState();
+    bgColor = widget.bgColor;
+    orpColor = widget.orpColor;
+    textColor = widget.textColor;
     loadWords();
   }
 
@@ -180,6 +187,71 @@ class _ReaderScreenState extends State<ReaderScreen> {
         .set({'wpm': wpm}, SetOptions(merge: true));
   }
 
+  Future<void> saveColors() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .set({
+          'bgColor': bgColor.value,
+          'orpColor': orpColor.value,
+          'textColor': textColor.value,
+        }, SetOptions(merge: true));
+  }
+
+  void showColorPickerDialog(String type) {
+    Color currentColor = type == 'bgColor'
+        ? bgColor
+        : type == 'orpColor'
+            ? orpColor
+            : textColor;
+    Color tempColor = currentColor;
+
+    String title = type == 'bgColor'
+        ? 'Background Color'
+        : type == 'orpColor'
+            ? 'Highlight Color'
+            : 'Text Color';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a1a),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: tempColor,
+            onColorChanged: (color) {
+              tempColor = color;
+            },
+            enableAlpha: false,
+            labelTypes: const [],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                if (type == 'bgColor') bgColor = tempColor;
+                if (type == 'orpColor') orpColor = tempColor;
+                if (type == 'textColor') textColor = tempColor;
+              });
+              saveColors();
+              Navigator.pop(context);
+            },
+            child: const Text('Save', style: TextStyle(color: Color(0xFFE63946))),
+          ),
+        ],
+      ),
+    );
+  }
+
   void startReading() {
     timer?.cancel();
 
@@ -259,16 +331,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
             width: sideWidth,
             child: Text(before,
                 textAlign: TextAlign.right,
-                style: style.copyWith(color: widget.textColor),
+                style: style.copyWith(color: textColor),
                 maxLines: 1,
                 overflow: TextOverflow.visible),
           ),
-          Text(focus, style: style.copyWith(color: widget.orpColor)),
+          Text(focus, style: style.copyWith(color: orpColor)),
           SizedBox(
             width: sideWidth,
             child: Text(after,
                 textAlign: TextAlign.left,
-                style: style.copyWith(color: widget.textColor),
+                style: style.copyWith(color: textColor),
                 maxLines: 1,
                 overflow: TextOverflow.visible),
           ),
@@ -315,16 +387,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
           width: sideWidth,
           child: Text(before,
               textAlign: TextAlign.right,
-              style: style.copyWith(color: widget.textColor),
+              style: style.copyWith(color: textColor),
               maxLines: 1,
               overflow: TextOverflow.visible),
         ),
-        Text(focus, style: style.copyWith(color: widget.orpColor)),
+        Text(focus, style: style.copyWith(color: orpColor)),
         SizedBox(
           width: sideWidth,
           child: Text(after,
               textAlign: TextAlign.left,
-              style: style.copyWith(color: widget.textColor),
+              style: style.copyWith(color: textColor),
               maxLines: 1,
               overflow: TextOverflow.visible),
         ),
@@ -335,11 +407,53 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: widget.bgColor,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: widget.bgColor,
+        backgroundColor: bgColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: widget.textColor),
+        iconTheme: IconThemeData(color: textColor),
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: textColor.withOpacity(0.54)),
+            color: const Color(0xFF1a1a1a),
+            onSelected: (value) => showColorPickerDialog(value),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'bgColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: bgColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Background Color',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'orpColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: orpColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Highlight Color',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'textColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: textColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Text Color',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
         title: RichText(
           text: TextSpan(
             style: const TextStyle(
@@ -348,15 +462,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
               letterSpacing: 3,
             ),
             children: [
-              TextSpan(text: 'FO', style: TextStyle(color: widget.textColor)),
-              TextSpan(text: 'Q', style: TextStyle(color: widget.orpColor)),
-              TextSpan(text: 'US', style: TextStyle(color: widget.textColor)),
+              TextSpan(text: 'FO', style: TextStyle(color: textColor)),
+              TextSpan(text: 'Q', style: TextStyle(color: orpColor)),
+              TextSpan(text: 'US', style: TextStyle(color: textColor)),
             ],
           ),
         ),
       ),
       body: isLoading
-          ? Center(child: CircularProgressIndicator(color: widget.orpColor))
+          ? Center(child: CircularProgressIndicator(color: orpColor))
           : words.isEmpty
               ? const Center(
                   child: Text('No text found in this chapter.',
@@ -372,13 +486,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             child: LinearProgressIndicator(
                               value: words.isEmpty ? 0 : currentIndex / words.length,
                               backgroundColor: Colors.white12,
-                              color: widget.orpColor,
+                              color: orpColor,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             words.isEmpty ? '0%' : '${((currentIndex / words.length) * 100).round()}%',
-                            style: TextStyle(color: widget.textColor.withOpacity(0.54), fontSize: 12),
+                            style: TextStyle(
+                                color: textColor.withOpacity(0.54), fontSize: 12),
                           ),
                         ],
                       ),
@@ -388,14 +503,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
                         children: [
-                          Text('WPM', style: TextStyle(color: widget.textColor.withOpacity(0.54))),
+                          Text('WPM',
+                              style: TextStyle(
+                                  color: textColor.withOpacity(0.54))),
                           Expanded(
                             child: Slider(
                               value: wpm.toDouble(),
                               min: 100,
                               max: 1000,
                               divisions: 90,
-                              activeColor: widget.orpColor,
+                              activeColor: orpColor,
                               inactiveColor: Colors.white12,
                               onChanged: (val) {
                                 setState(() {
@@ -409,7 +526,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               },
                             ),
                           ),
-                          Text('$wpm', style: TextStyle(color: widget.textColor.withOpacity(0.54))),
+                          Text('$wpm',
+                              style: TextStyle(
+                                  color: textColor.withOpacity(0.54))),
                         ],
                       ),
                     ),
@@ -420,10 +539,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         children: [
                           IconButton(
                             icon: Icon(Icons.replay_10,
-                                color: widget.textColor.withOpacity(0.54), size: 36),
+                                color: textColor.withOpacity(0.54), size: 36),
                             onPressed: () {
                               setState(() {
-                                currentIndex = (currentIndex - 10).clamp(0, words.length - 1);
+                                currentIndex = (currentIndex - 10)
+                                    .clamp(0, words.length - 1);
                               });
                             },
                           ),
@@ -434,12 +554,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: widget.orpColor,
+                                color: orpColor,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: widget.bgColor,
+                                color: bgColor,
                                 size: 36,
                               ),
                             ),
@@ -447,10 +567,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           const SizedBox(width: 24),
                           IconButton(
                             icon: Icon(Icons.forward_10,
-                                color: widget.textColor.withOpacity(0.54), size: 36),
+                                color: textColor.withOpacity(0.54), size: 36),
                             onPressed: () {
                               setState(() {
-                                currentIndex = (currentIndex + 10).clamp(0, words.length - 1);
+                                currentIndex = (currentIndex + 10)
+                                    .clamp(0, words.length - 1);
                               });
                             },
                           ),
