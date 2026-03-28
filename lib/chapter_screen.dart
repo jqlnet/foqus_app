@@ -7,7 +7,17 @@ import 'reader_screen.dart';
 
 class ChapterScreen extends StatefulWidget {
   final String filePath;
-  const ChapterScreen({super.key, required this.filePath});
+  final Color bgColor;
+  final Color orpColor;
+  final Color textColor;
+
+  const ChapterScreen({
+    super.key,
+    required this.filePath,
+    required this.bgColor,
+    required this.orpColor,
+    required this.textColor,
+  });
 
   @override
   State<ChapterScreen> createState() => _ChapterScreenState();
@@ -57,24 +67,29 @@ class _ChapterScreenState extends State<ChapterScreen> {
           }
         }
 
-        setState(() {
-          chapterProgress = progress;
-        });
+        if (mounted) {
+          setState(() {
+            chapterProgress = progress;
+          });
+        }
       }
 
-      setState(() {
-        chapters =
-            chapterList
-                ?.where((c) => c.Title != null)
-                .map((c) => c.Title!)
-                .toList() ??
-            [];
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          chapters = chapterList
+                  ?.where((c) => c.Title != null)
+                  .map((c) => c.Title!)
+                  .toList() ??
+              [];
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -100,54 +115,57 @@ class _ChapterScreenState extends State<ChapterScreen> {
               child: CircularProgressIndicator(color: Color(0xFFE63946)),
             )
           : chapters.isEmpty
-          ? const Center(
-              child: Text(
-                'No chapters found.',
-                style: TextStyle(color: Colors.white38),
-              ),
-            )
-          : RefreshIndicator(
-              color: const Color(0xFFE63946),
-              backgroundColor: const Color(0xFF1a1a1a),
-              onRefresh: loadChapters,
-              child: ListView.builder(
-                itemCount: chapters.length,
-                itemBuilder: (context, index) {
-                  final progress = chapterProgress[index];
-                  return ListTile(
-                    title: Text(
-                      chapters[index],
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    subtitle: progress != null && progress > 0
-                        ? Text(
-                            '$progress% completed',
-                            style: const TextStyle(
-                              color: Color(0xFFE63946),
-                              fontSize: 12,
-                            ),
-                          )
-                        : null,
-                    leading: const Icon(
-                      Icons.article_outlined,
-                      color: Color(0xFFE63946),
-                    ),
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ReaderScreen(
-                            filePath: widget.filePath,
-                            chapterIndex: index,
-                          ),
+              ? const Center(
+                  child: Text(
+                    'No chapters found.',
+                    style: TextStyle(color: Colors.white38),
+                  ),
+                )
+              : RefreshIndicator(
+                  color: const Color(0xFFE63946),
+                  backgroundColor: const Color(0xFF1a1a1a),
+                  onRefresh: loadChapters,
+                  child: ListView.builder(
+                    itemCount: chapters.length,
+                    itemBuilder: (context, index) {
+                      final progress = chapterProgress[index];
+                      return ListTile(
+                        title: Text(
+                          chapters[index],
+                          style: const TextStyle(color: Colors.white),
                         ),
+                        subtitle: progress != null && progress > 0
+                            ? Text(
+                                '$progress% completed',
+                                style: const TextStyle(
+                                  color: Color(0xFFE63946),
+                                  fontSize: 12,
+                                ),
+                              )
+                            : null,
+                        leading: const Icon(
+                          Icons.article_outlined,
+                          color: Color(0xFFE63946),
+                        ),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReaderScreen(
+                                filePath: widget.filePath,
+                                chapterIndex: index,
+                                bgColor: widget.bgColor,
+                                orpColor: widget.orpColor,
+                                textColor: widget.textColor,
+                              ),
+                            ),
+                          );
+                          loadChapters();
+                        },
                       );
-                      loadChapters();
                     },
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
     );
   }
 }

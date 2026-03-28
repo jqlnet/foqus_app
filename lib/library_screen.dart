@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'chapter_screen.dart';
@@ -17,12 +18,48 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<String> books = [];
   bool isLoading = true;
   int wpm = 250;
+  Color bgColor = const Color(0xFF0A0A0A);
+  Color orpColor = const Color(0xFFE63946);
+  Color textColor = Colors.white;
 
   @override
   void initState() {
     super.initState();
     loadBooks();
-    loadWpm();
+    loadSettings();
+  }
+
+  Future<void> loadSettings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (!mounted) return;
+    if (doc.exists) {
+      final data = doc.data();
+      setState(() {
+        if (data?['wpm'] != null) wpm = data!['wpm'] as int;
+        if (data?['bgColor'] != null) bgColor = Color(data!['bgColor'] as int);
+        if (data?['orpColor'] != null) orpColor = Color(data!['orpColor'] as int);
+        if (data?['textColor'] != null) textColor = Color(data!['textColor'] as int);
+      });
+    }
+  }
+
+  Future<void> saveSettings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'wpm': wpm,
+      'bgColor': bgColor.value,
+      'orpColor': orpColor.value,
+      'textColor': textColor.value,
+    }, SetOptions(merge: true));
   }
 
   Future<void> loadWpm() async {
@@ -64,6 +101,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .collection('books')
         .get();
 
+    if (!mounted) return;
     setState(() {
       books = snapshot.docs.map((doc) => doc['filePath'] as String).toList();
       isLoading = false;
@@ -108,6 +146,51 @@ class _LibraryScreenState extends State<LibraryScreen> {
         books.add(permanentPath);
       });
     }
+  }
+
+  void showColorPickerDialog(
+    String title,
+    Color currentColor,
+    Function(Color) onColorChanged,
+  ) {
+    Color tempColor = currentColor;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a1a),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: tempColor,
+            onColorChanged: (color) {
+              tempColor = color;
+            },
+            enableAlpha: false,
+            labelTypes: const [],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white38),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              onColorChanged(tempColor);
+              saveSettings();
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Save',
+              style: TextStyle(color: Color(0xFFE63946)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void showWpmDialog() {
@@ -156,7 +239,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Speed reader: 500+ WPM',
+                'Speed reader: 500-1000 WPM',
                 style: TextStyle(color: Colors.white38, fontSize: 12),
               ),
             ],
@@ -209,6 +292,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 await FirebaseAuth.instance.signOut();
               } else if (value == 'wpm') {
                 showWpmDialog();
+              } else if (value == 'bgColor') {
+                showColorPickerDialog('Background Color', bgColor, (color) {
+                  setState(() => bgColor = color);
+                });
+              } else if (value == 'orpColor') {
+                showColorPickerDialog('Highlight Color', orpColor, (color) {
+                  setState(() => orpColor = color);
+                });
+              } else if (value == 'textColor') {
+                showColorPickerDialog('Text Color', textColor, (color) {
+                  setState(() => textColor = color);
+                });
               }
             },
             itemBuilder: (context) => [
@@ -221,6 +316,45 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     Text(
                       'Reading Speed ($wpm WPM)',
                       style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'bgColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: bgColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Background Color',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'orpColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: orpColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Highlight Color',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'textColor',
+                child: Row(
+                  children: [
+                    Icon(Icons.circle, color: textColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Text Color',
+                      style: TextStyle(color: Colors.white),
                     ),
                   ],
                 ),
@@ -265,7 +399,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ),
                   onDismissed: (direction) async {
                     final removedBook = books[index];
-
                     setState(() {
                       books.removeAt(index);
                     });
@@ -296,8 +429,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              ChapterScreen(filePath: books[index]),
+                          builder: (context) => ChapterScreen(
+                            filePath: books[index],
+                            bgColor: bgColor,
+                            orpColor: orpColor,
+                            textColor: textColor,
+                          ),
                         ),
                       );
                     },

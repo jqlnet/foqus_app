@@ -8,11 +8,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ReaderScreen extends StatefulWidget {
   final String filePath;
   final int chapterIndex;
+  final Color bgColor;
+  final Color orpColor;
+  final Color textColor;
 
   const ReaderScreen({
     super.key,
     required this.filePath,
     required this.chapterIndex,
+    required this.bgColor,
+    required this.orpColor,
+    required this.textColor,
   });
 
   @override
@@ -168,9 +174,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'wpm': wpm,
-    }, SetOptions(merge: true));
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .set({'wpm': wpm}, SetOptions(merge: true));
   }
 
   void startReading() {
@@ -190,9 +197,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
       if (word.endsWith('.') || word.endsWith('!') || word.endsWith('?')) {
         ms = (baseMs * 2.0).round();
-      } else if (word.endsWith(',') ||
-          word.endsWith(';') ||
-          word.endsWith(':')) {
+      } else if (word.endsWith(',') || word.endsWith(';') || word.endsWith(':')) {
         ms = (baseMs * 1.5).round();
       } else if (word.length >= 8) {
         ms = (baseMs * 1.3).round();
@@ -222,7 +227,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget buildWord(String word) {
     if (word.isEmpty) return const SizedBox();
 
-    // Dynamic font size based on word length
     double fontSize = 48;
     if (word.length > 8 && word.length <= 11) {
       fontSize = 38;
@@ -241,7 +245,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     const double sideWidth = 160;
 
-    // Short word fast-path
     if (word.length <= 2) {
       final mid = word.length == 1 ? 0 : 1;
       final before = word.substring(0, mid);
@@ -254,36 +257,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
         children: [
           SizedBox(
             width: sideWidth,
-            child: Text(
-              before,
-              textAlign: TextAlign.right,
-              style: style.copyWith(color: Colors.white),
-              maxLines: 1,
-              overflow: TextOverflow.visible,
-            ),
+            child: Text(before,
+                textAlign: TextAlign.right,
+                style: style.copyWith(color: widget.textColor),
+                maxLines: 1,
+                overflow: TextOverflow.visible),
           ),
-          Text(focus, style: style.copyWith(color: const Color(0xFFE63946))),
+          Text(focus, style: style.copyWith(color: widget.orpColor)),
           SizedBox(
             width: sideWidth,
-            child: Text(
-              after,
-              textAlign: TextAlign.left,
-              style: style.copyWith(color: Colors.white),
-              maxLines: 1,
-              overflow: TextOverflow.visible,
-            ),
+            child: Text(after,
+                textAlign: TextAlign.left,
+                style: style.copyWith(color: widget.textColor),
+                maxLines: 1,
+                overflow: TextOverflow.visible),
           ),
         ],
       );
     }
 
     final punctuationRegex = RegExp(r"[a-zA-Z0-9\u0027\u2019\-]");
-
-    final cleanWord = word
-        .split('')
-        .where((c) => punctuationRegex.hasMatch(c))
-        .join();
-
+    final cleanWord = word.split('').where((c) => punctuationRegex.hasMatch(c)).join();
     final calcWord = cleanWord.isEmpty ? word : cleanWord;
 
     int orpIndex;
@@ -319,24 +313,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
       children: [
         SizedBox(
           width: sideWidth,
-          child: Text(
-            before,
-            textAlign: TextAlign.right,
-            style: style.copyWith(color: Colors.white),
-            maxLines: 1,
-            overflow: TextOverflow.visible,
-          ),
+          child: Text(before,
+              textAlign: TextAlign.right,
+              style: style.copyWith(color: widget.textColor),
+              maxLines: 1,
+              overflow: TextOverflow.visible),
         ),
-        Text(focus, style: style.copyWith(color: const Color(0xFFE63946))),
+        Text(focus, style: style.copyWith(color: widget.orpColor)),
         SizedBox(
           width: sideWidth,
-          child: Text(
-            after,
-            textAlign: TextAlign.left,
-            style: style.copyWith(color: Colors.white),
-            maxLines: 1,
-            overflow: TextOverflow.visible,
-          ),
+          child: Text(after,
+              textAlign: TextAlign.left,
+              style: style.copyWith(color: widget.textColor),
+              maxLines: 1,
+              overflow: TextOverflow.visible),
         ),
       ],
     );
@@ -345,170 +335,130 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: widget.bgColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: widget.bgColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: widget.textColor),
         title: RichText(
-          text: const TextSpan(
-            style: TextStyle(
+          text: TextSpan(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               letterSpacing: 3,
             ),
             children: [
-              TextSpan(
-                text: 'FO',
-                style: TextStyle(color: Colors.white),
-              ),
-              TextSpan(
-                text: 'Q',
-                style: TextStyle(color: Color(0xFFE63946)),
-              ),
-              TextSpan(
-                text: 'US',
-                style: TextStyle(color: Colors.white),
-              ),
+              TextSpan(text: 'FO', style: TextStyle(color: widget.textColor)),
+              TextSpan(text: 'Q', style: TextStyle(color: widget.orpColor)),
+              TextSpan(text: 'US', style: TextStyle(color: widget.textColor)),
             ],
           ),
         ),
       ),
       body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFE63946)),
-            )
+          ? Center(child: CircularProgressIndicator(color: widget.orpColor))
           : words.isEmpty
-          ? const Center(
-              child: Text(
-                'No text found in this chapter.',
-                style: TextStyle(color: Colors.white38),
-              ),
-            )
-          : Column(
-              children: [
-                Expanded(child: Center(child: buildWord(words[currentIndex]))),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: LinearProgressIndicator(
-                          value: words.isEmpty
-                              ? 0
-                              : currentIndex / words.length,
-                          backgroundColor: Colors.white12,
-                          color: const Color(0xFFE63946),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        words.isEmpty
-                            ? '0%'
-                            : '${((currentIndex / words.length) * 100).round()}%',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'WPM',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                      Expanded(
-                        child: Slider(
-                          // the speed at which the reader goes through the words
-                          value: wpm.toDouble(),
-                          min: 100,
-                          max: 1000,
-                          divisions: 90,
-                          activeColor: const Color(0xFFE63946),
-                          inactiveColor: Colors.white12,
-                          onChanged: (val) {
-                            setState(() {
-                              wpm = val.round();
-                            });
-                            saveWpm();
-                            if (isPlaying) {
-                              pauseReading();
-                              startReading();
-                            }
-                          },
-                        ),
-                      ),
-                      Text(
-                        '$wpm',
-                        style: const TextStyle(color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 40),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.replay_10,
-                          color: Colors.white54,
-                          size: 36,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            currentIndex = (currentIndex - 10).clamp(
-                              0,
-                              words.length - 1,
-                            );
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 24),
-                      GestureDetector(
-                        onTap: isPlaying ? pauseReading : startReading,
-                        child: Container(
-                          width: 64,
-                          height: 64,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE63946),
-                            shape: BoxShape.circle,
+              ? const Center(
+                  child: Text('No text found in this chapter.',
+                      style: TextStyle(color: Colors.white38)))
+              : Column(
+                  children: [
+                    Expanded(child: Center(child: buildWord(words[currentIndex]))),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: words.isEmpty ? 0 : currentIndex / words.length,
+                              backgroundColor: Colors.white12,
+                              color: widget.orpColor,
+                            ),
                           ),
-                          child: Icon(
-                            isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 36,
+                          const SizedBox(width: 8),
+                          Text(
+                            words.isEmpty ? '0%' : '${((currentIndex / words.length) * 100).round()}%',
+                            style: TextStyle(color: widget.textColor.withOpacity(0.54), fontSize: 12),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 24),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.forward_10,
-                          color: Colors.white54,
-                          size: 36,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            currentIndex = (currentIndex + 10).clamp(
-                              0,
-                              words.length - 1,
-                            );
-                          });
-                        },
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Text('WPM', style: TextStyle(color: widget.textColor.withOpacity(0.54))),
+                          Expanded(
+                            child: Slider(
+                              value: wpm.toDouble(),
+                              min: 100,
+                              max: 1000,
+                              divisions: 90,
+                              activeColor: widget.orpColor,
+                              inactiveColor: Colors.white12,
+                              onChanged: (val) {
+                                setState(() {
+                                  wpm = val.round();
+                                });
+                                saveWpm();
+                                if (isPlaying) {
+                                  pauseReading();
+                                  startReading();
+                                }
+                              },
+                            ),
+                          ),
+                          Text('$wpm', style: TextStyle(color: widget.textColor.withOpacity(0.54))),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 40),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.replay_10,
+                                color: widget.textColor.withOpacity(0.54), size: 36),
+                            onPressed: () {
+                              setState(() {
+                                currentIndex = (currentIndex - 10).clamp(0, words.length - 1);
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 24),
+                          GestureDetector(
+                            onTap: isPlaying ? pauseReading : startReading,
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: widget.orpColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isPlaying ? Icons.pause : Icons.play_arrow,
+                                color: widget.bgColor,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          IconButton(
+                            icon: Icon(Icons.forward_10,
+                                color: widget.textColor.withOpacity(0.54), size: 36),
+                            onPressed: () {
+                              setState(() {
+                                currentIndex = (currentIndex + 10).clamp(0, words.length - 1);
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 }
