@@ -31,17 +31,51 @@ class _ChapterScreenState extends State<ChapterScreen> {
   List<String> chapters = [];
   Map<int, int> chapterProgress = {};
   bool isLoading = true;
+  late Color bgColor;
+  late Color orpColor;
+  late Color textColor;
+  late bool delayedMode;
+  late bool sentenceMode;
 
   @override
   void initState() {
     super.initState();
+    bgColor = widget.bgColor;
+    orpColor = widget.orpColor;
+    textColor = widget.textColor;
+    delayedMode = widget.delayedMode;
+    sentenceMode = widget.sentenceMode;
     loadChapters();
+    loadSettings();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     loadChapters();
+    loadSettings();
+  }
+
+  Future<void> loadSettings() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (!mounted) return;
+    if (doc.exists) {
+      final data = doc.data();
+      setState(() {
+        if (data?['bgColor'] != null) bgColor = Color(data!['bgColor'] as int);
+        if (data?['orpColor'] != null) orpColor = Color(data!['orpColor'] as int);
+        if (data?['textColor'] != null) textColor = Color(data!['textColor'] as int);
+        if (data?['delayedMode'] != null) delayedMode = data!['delayedMode'] as bool;
+        if (data?['sentenceMode'] != null) sentenceMode = data!['sentenceMode'] as bool;
+      });
+    }
   }
 
   Future<void> loadChapters() async {
@@ -158,15 +192,16 @@ class _ChapterScreenState extends State<ChapterScreen> {
                               builder: (context) => ReaderScreen(
                                 filePath: widget.filePath,
                                 chapterIndex: index,
-                                bgColor: widget.bgColor,
-                                orpColor: widget.orpColor,
-                                textColor: widget.textColor,
-                                delayedMode: widget.delayedMode,
-                                sentenceMode: widget.sentenceMode,
+                                bgColor: bgColor,
+                                orpColor: orpColor,
+                                textColor: textColor,
+                                delayedMode: delayedMode,
+                                sentenceMode: sentenceMode,
                               ),
                             ),
                           );
                           loadChapters();
+                          loadSettings();
                         },
                       );
                     },
