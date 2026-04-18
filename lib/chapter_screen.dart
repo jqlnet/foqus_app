@@ -10,6 +10,8 @@ class ChapterScreen extends StatefulWidget {
   final Color bgColor;
   final Color orpColor;
   final Color textColor;
+  final bool delayedMode;
+  final bool sentenceMode;
 
   const ChapterScreen({
     super.key,
@@ -17,6 +19,8 @@ class ChapterScreen extends StatefulWidget {
     required this.bgColor,
     required this.orpColor,
     required this.textColor,
+    required this.delayedMode,
+    required this.sentenceMode,
   });
 
   @override
@@ -157,6 +161,8 @@ class _ChapterScreenState extends State<ChapterScreen> {
                                 bgColor: widget.bgColor,
                                 orpColor: widget.orpColor,
                                 textColor: widget.textColor,
+                                delayedMode: widget.delayedMode,
+                                sentenceMode: widget.sentenceMode,
                               ),
                             ),
                           );

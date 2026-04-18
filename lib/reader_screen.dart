@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'settings_sheet.dart';
 
 class ReaderScreen extends StatefulWidget {
   final String filePath;
@@ -12,6 +12,8 @@ class ReaderScreen extends StatefulWidget {
   final Color bgColor;
   final Color orpColor;
   final Color textColor;
+  final bool delayedMode;
+  final bool sentenceMode;
 
   const ReaderScreen({
     super.key,
@@ -20,6 +22,8 @@ class ReaderScreen extends StatefulWidget {
     required this.bgColor,
     required this.orpColor,
     required this.textColor,
+    required this.delayedMode,
+    required this.sentenceMode,
   });
 
   @override
@@ -28,7 +32,9 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> {
   List<String> words = [];
+  List<String> sentences = [];
   int currentIndex = 0;
+  int currentSentenceIndex = 0;
   bool isPlaying = false;
   bool isLoading = true;
   int wpm = 250;
@@ -36,6 +42,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late Color bgColor;
   late Color orpColor;
   late Color textColor;
+  late bool delayedMode;
+  late bool sentenceMode;
 
   @override
   void initState() {
@@ -43,6 +51,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     bgColor = widget.bgColor;
     orpColor = widget.orpColor;
     textColor = widget.textColor;
+    delayedMode = widget.delayedMode;
+    sentenceMode = widget.sentenceMode;
     loadWords();
   }
 
@@ -109,8 +119,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
         wordList.add(token);
       }
 
+      // Build sentences by grouping words
+      final List<String> sentenceList = [];
+      List<String> currentSentence = [];
+      for (var word in wordList) {
+        currentSentence.add(word);
+        if (word.endsWith('.') || word.endsWith('!') || word.endsWith('?')) {
+          sentenceList.add(currentSentence.join(' '));
+          currentSentence = [];
+        }
+      }
+      if (currentSentence.isNotEmpty) {
+        sentenceList.add(currentSentence.join(' '));
+      }
+
       setState(() {
         words = wordList;
+        sentences = sentenceList;
         isLoading = false;
       });
       await loadProgress();
@@ -132,12 +157,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
         .collection('progress')
         .doc('${widget.filePath.replaceAll('/', '_')}_${widget.chapterIndex}')
         .set({
-          'wordIndex': currentIndex,
-          'totalWords': words.length,
-          'filePath': widget.filePath,
-          'chapterIndex': widget.chapterIndex,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+      'wordIndex': currentIndex,
+      'totalWords': words.length,
+      'filePath': widget.filePath,
+      'chapterIndex': widget.chapterIndex,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> loadProgress() async {
@@ -187,126 +212,127 @@ class _ReaderScreenState extends State<ReaderScreen> {
         .set({'wpm': wpm}, SetOptions(merge: true));
   }
 
-  Future<void> saveColors() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  int getWordMs(String word) {
+    int baseMs = (60000 / wpm).round();
+    int ms = baseMs;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .set({
-          'bgColor': bgColor.value,
-          'orpColor': orpColor.value,
-          'textColor': textColor.value,
-        }, SetOptions(merge: true));
-  }
+    if (word.endsWith('.') || word.endsWith('!') || word.endsWith('?')) {
+      ms = (baseMs * 2.0).round();
+    } else if (word.endsWith(',') || word.endsWith(';') || word.endsWith(':')) {
+      ms = (baseMs * 1.5).round();
+    } else if (delayedMode && word.length >= 8) {
+      final halfWpm = (wpm / 2).floor();
+      ms = (60000 / halfWpm).round();
+    } else if (word.length >= 8) {
+      ms = (baseMs * 1.3).round();
+    }
 
-  void showColorPickerDialog(String type) {
-    Color currentColor = type == 'bgColor'
-        ? bgColor
-        : type == 'orpColor'
-            ? orpColor
-            : textColor;
-    Color tempColor = currentColor;
-
-    String title = type == 'bgColor'
-        ? 'Background Color'
-        : type == 'orpColor'
-            ? 'Highlight Color'
-            : 'Text Color';
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a1a),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: tempColor,
-            onColorChanged: (color) {
-              tempColor = color;
-            },
-            enableAlpha: false,
-            labelTypes: const [],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                if (type == 'bgColor') bgColor = tempColor;
-                if (type == 'orpColor') orpColor = tempColor;
-                if (type == 'textColor') textColor = tempColor;
-              });
-              saveColors();
-              Navigator.pop(context);
-            },
-            child: const Text('Save', style: TextStyle(color: Color(0xFFE63946))),
-          ),
-        ],
-      ),
-    );
+    return ms;
   }
 
   void startReading() {
     timer?.cancel();
 
+    if (sentenceMode) {
+      _startSentenceMode();
+    } else {
+      _startWordMode();
+    }
+
+    setState(() => isPlaying = true);
+  }
+
+  void _startWordMode() {
     void scheduleNext() {
       if (!mounted) return;
-
       if (currentIndex >= words.length - 1) {
         setState(() => isPlaying = false);
         return;
       }
 
       final word = words[currentIndex];
-      int baseMs = (60000 / wpm).round();
-      int ms = baseMs;
-
-      if (word.endsWith('.') || word.endsWith('!') || word.endsWith('?')) {
-        ms = (baseMs * 2.0).round();
-      } else if (word.endsWith(',') || word.endsWith(';') || word.endsWith(':')) {
-        ms = (baseMs * 1.5).round();
-      } else if (word.length >= 8) {
-        ms = (baseMs * 1.3).round();
-      }
+      final ms = getWordMs(word);
 
       timer = Timer(Duration(milliseconds: ms), () {
         if (!mounted) return;
-        setState(() {
-          currentIndex++;
-        });
+        setState(() => currentIndex++);
         scheduleNext();
       });
     }
 
-    setState(() => isPlaying = true);
+    scheduleNext();
+  }
+
+  void _startSentenceMode() {
+    void scheduleNext() {
+      if (!mounted) return;
+      if (currentSentenceIndex >= sentences.length - 1) {
+        setState(() => isPlaying = false);
+        return;
+      }
+
+      final sentence = sentences[currentSentenceIndex];
+      final sentenceWords = sentence.split(' ');
+      final totalMs = sentenceWords.fold<int>(0, (sum, w) => sum + getWordMs(w));
+
+      timer = Timer(Duration(milliseconds: totalMs), () {
+        if (!mounted) return;
+        setState(() => currentSentenceIndex++);
+        scheduleNext();
+      });
+    }
+
     scheduleNext();
   }
 
   void pauseReading() {
     timer?.cancel();
     saveProgress();
-    setState(() {
-      isPlaying = false;
-    });
+    setState(() => isPlaying = false);
+  }
+
+  void openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => SettingsSheet(
+        wpm: wpm,
+        bgColor: bgColor,
+        orpColor: orpColor,
+        textColor: textColor,
+        delayedMode: delayedMode,
+        sentenceMode: sentenceMode,
+        onWpmChanged: (val) {
+          setState(() => wpm = val);
+          saveWpm();
+          if (isPlaying) {
+            pauseReading();
+            startReading();
+          }
+        },
+        onBgColorChanged: (val) => setState(() => bgColor = val),
+        onOrpColorChanged: (val) => setState(() => orpColor = val),
+        onTextColorChanged: (val) => setState(() => textColor = val),
+        onDelayedModeChanged: (val) => setState(() => delayedMode = val),
+        onSentenceModeChanged: (val) {
+          setState(() => sentenceMode = val);
+          if (isPlaying) {
+            pauseReading();
+            startReading();
+          }
+        },
+      ),
+    );
   }
 
   Widget buildWord(String word) {
     if (word.isEmpty) return const SizedBox();
 
     double fontSize = 48;
-    if (word.length > 8 && word.length <= 11) {
-      fontSize = 38;
-    } else if (word.length > 11 && word.length <= 14) {
-      fontSize = 30;
-    } else if (word.length > 14) {
-      fontSize = 24;
-    }
+    if (word.length > 8 && word.length <= 11) fontSize = 38;
+    else if (word.length > 11 && word.length <= 14) fontSize = 30;
+    else if (word.length > 14) fontSize = 24;
 
     final style = TextStyle(
       fontSize: fontSize,
@@ -322,28 +348,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final before = word.substring(0, mid);
       final focus = word[mid];
       final after = word.substring(mid + 1);
-
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: sideWidth,
-            child: Text(before,
-                textAlign: TextAlign.right,
-                style: style.copyWith(color: textColor),
-                maxLines: 1,
-                overflow: TextOverflow.visible),
-          ),
+          SizedBox(width: sideWidth, child: Text(before, textAlign: TextAlign.right, style: style.copyWith(color: textColor), maxLines: 1, overflow: TextOverflow.visible)),
           Text(focus, style: style.copyWith(color: orpColor)),
-          SizedBox(
-            width: sideWidth,
-            child: Text(after,
-                textAlign: TextAlign.left,
-                style: style.copyWith(color: textColor),
-                maxLines: 1,
-                overflow: TextOverflow.visible),
-          ),
+          SizedBox(width: sideWidth, child: Text(after, textAlign: TextAlign.left, style: style.copyWith(color: textColor), maxLines: 1, overflow: TextOverflow.visible)),
         ],
       );
     }
@@ -353,26 +364,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final calcWord = cleanWord.isEmpty ? word : cleanWord;
 
     int orpIndex;
-    if (calcWord.length == 1) {
-      orpIndex = 0;
-    } else if (calcWord.length % 2 == 0) {
-      orpIndex = (calcWord.length ~/ 2) - 1;
-    } else {
-      orpIndex = calcWord.length ~/ 2;
-    }
+    if (calcWord.length == 1) orpIndex = 0;
+    else if (calcWord.length % 2 == 0) orpIndex = (calcWord.length ~/ 2) - 1;
+    else orpIndex = calcWord.length ~/ 2;
 
     int? actualOrpIndex;
     int cleanCount = 0;
     for (int i = 0; i < word.length; i++) {
       if (punctuationRegex.hasMatch(word[i])) {
-        if (cleanCount == orpIndex) {
-          actualOrpIndex = i;
-          break;
-        }
+        if (cleanCount == orpIndex) { actualOrpIndex = i; break; }
         cleanCount++;
       }
     }
-
     actualOrpIndex ??= (word.length ~/ 2).clamp(0, word.length - 1);
 
     final before = word.substring(0, actualOrpIndex);
@@ -383,29 +386,36 @@ class _ReaderScreenState extends State<ReaderScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: sideWidth,
-          child: Text(before,
-              textAlign: TextAlign.right,
-              style: style.copyWith(color: textColor),
-              maxLines: 1,
-              overflow: TextOverflow.visible),
-        ),
+        SizedBox(width: sideWidth, child: Text(before, textAlign: TextAlign.right, style: style.copyWith(color: textColor), maxLines: 1, overflow: TextOverflow.visible)),
         Text(focus, style: style.copyWith(color: orpColor)),
-        SizedBox(
-          width: sideWidth,
-          child: Text(after,
-              textAlign: TextAlign.left,
-              style: style.copyWith(color: textColor),
-              maxLines: 1,
-              overflow: TextOverflow.visible),
-        ),
+        SizedBox(width: sideWidth, child: Text(after, textAlign: TextAlign.left, style: style.copyWith(color: textColor), maxLines: 1, overflow: TextOverflow.visible)),
       ],
+    );
+  }
+
+  Widget buildSentence(String sentence) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Text(
+        sentence,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 20,
+          color: textColor,
+          fontFamily: 'monospace',
+          height: 1.6,
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final totalItems = sentenceMode ? sentences.length : words.length;
+    final currentItem = sentenceMode ? currentSentenceIndex : currentIndex;
+    final progress = totalItems == 0 ? 0.0 : currentItem / totalItems;
+    final progressText = totalItems == 0 ? '0%' : '${(progress * 100).round()}%';
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -416,38 +426,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: textColor.withOpacity(0.54)),
             color: const Color(0xFF1a1a1a),
-            onSelected: (value) => showColorPickerDialog(value),
+            onSelected: (value) {
+              if (value == 'settings') openSettings();
+            },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'bgColor',
+              const PopupMenuItem(
+                value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.circle, color: bgColor, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Background Color',
-                        style: TextStyle(color: Colors.white)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'orpColor',
-                child: Row(
-                  children: [
-                    Icon(Icons.circle, color: orpColor, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Highlight Color',
-                        style: TextStyle(color: Colors.white)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'textColor',
-                child: Row(
-                  children: [
-                    Icon(Icons.circle, color: textColor, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Text Color',
-                        style: TextStyle(color: Colors.white)),
+                    Icon(Icons.settings, color: Colors.white54, size: 18),
+                    SizedBox(width: 8),
+                    Text('Settings', style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -456,11 +445,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ],
         title: RichText(
           text: TextSpan(
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 3,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 3),
             children: [
               TextSpan(text: 'FO', style: TextStyle(color: textColor)),
               TextSpan(text: 'Q', style: TextStyle(color: orpColor)),
@@ -471,30 +456,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator(color: orpColor))
-          : words.isEmpty
-              ? const Center(
-                  child: Text('No text found in this chapter.',
-                      style: TextStyle(color: Colors.white38)))
+          : (sentenceMode ? sentences.isEmpty : words.isEmpty)
+              ? const Center(child: Text('No text found.', style: TextStyle(color: Colors.white38)))
               : Column(
                   children: [
-                    Expanded(child: Center(child: buildWord(words[currentIndex]))),
+                    Expanded(
+                      child: Center(
+                        child: sentenceMode
+                            ? buildSentence(sentences[currentSentenceIndex])
+                            : buildWord(words[currentIndex]),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
                         children: [
                           Expanded(
                             child: LinearProgressIndicator(
-                              value: words.isEmpty ? 0 : currentIndex / words.length,
+                              value: progress,
                               backgroundColor: Colors.white12,
                               color: orpColor,
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            words.isEmpty ? '0%' : '${((currentIndex / words.length) * 100).round()}%',
-                            style: TextStyle(
-                                color: textColor.withOpacity(0.54), fontSize: 12),
-                          ),
+                          Text(progressText, style: TextStyle(color: textColor.withOpacity(0.54), fontSize: 12)),
                         ],
                       ),
                     ),
@@ -503,32 +488,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Row(
                         children: [
-                          Text('WPM',
-                              style: TextStyle(
-                                  color: textColor.withOpacity(0.54))),
+                          Text('WPM', style: TextStyle(color: textColor.withOpacity(0.54))),
                           Expanded(
                             child: Slider(
                               value: wpm.toDouble(),
                               min: 100,
                               max: 1000,
-                              divisions: 90,
+                              divisions: 900,
                               activeColor: orpColor,
                               inactiveColor: Colors.white12,
                               onChanged: (val) {
-                                setState(() {
-                                  wpm = val.round();
-                                });
+                                setState(() => wpm = val.round());
                                 saveWpm();
-                                if (isPlaying) {
-                                  pauseReading();
-                                  startReading();
-                                }
+                                if (isPlaying) { pauseReading(); startReading(); }
                               },
                             ),
                           ),
-                          Text('$wpm',
-                              style: TextStyle(
-                                  color: textColor.withOpacity(0.54))),
+                          Text('$wpm', style: TextStyle(color: textColor.withOpacity(0.54))),
                         ],
                       ),
                     ),
@@ -538,12 +514,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: Icon(Icons.replay_10,
-                                color: textColor.withOpacity(0.54), size: 36),
+                            icon: Icon(Icons.replay_10, color: textColor.withOpacity(0.54), size: 36),
                             onPressed: () {
                               setState(() {
-                                currentIndex = (currentIndex - 10)
-                                    .clamp(0, words.length - 1);
+                                if (sentenceMode) {
+                                  currentSentenceIndex = (currentSentenceIndex - 1).clamp(0, sentences.length - 1);
+                                } else {
+                                  currentIndex = (currentIndex - 10).clamp(0, words.length - 1);
+                                }
                               });
                             },
                           ),
@@ -553,25 +531,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             child: Container(
                               width: 64,
                               height: 64,
-                              decoration: BoxDecoration(
-                                color: orpColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: bgColor,
-                                size: 36,
-                              ),
+                              decoration: BoxDecoration(color: orpColor, shape: BoxShape.circle),
+                              child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: bgColor, size: 36),
                             ),
                           ),
                           const SizedBox(width: 24),
                           IconButton(
-                            icon: Icon(Icons.forward_10,
-                                color: textColor.withOpacity(0.54), size: 36),
+                            icon: Icon(Icons.forward_10, color: textColor.withOpacity(0.54), size: 36),
                             onPressed: () {
                               setState(() {
-                                currentIndex = (currentIndex + 10)
-                                    .clamp(0, words.length - 1);
+                                if (sentenceMode) {
+                                  currentSentenceIndex = (currentSentenceIndex + 1).clamp(0, sentences.length - 1);
+                                } else {
+                                  currentIndex = (currentIndex + 10).clamp(0, words.length - 1);
+                                }
                               });
                             },
                           ),
