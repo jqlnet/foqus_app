@@ -71,6 +71,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final content = chapter?.HtmlContent ?? '';
 
       final plainText = content
+          .replaceAll(RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false, dotAll: true), ' ')
+          .replaceAll(RegExp(r'<h[1-6][^>]*>.*?</h[1-6]>', caseSensitive: false, dotAll: true), ' ')
           .replaceAll(RegExp(r'<[^>]*>'), ' ')
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
