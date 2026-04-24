@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -88,28 +89,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
-  Future<void> _loadCover(String filePath) async {
-    try {
-      final bytes = await File(filePath).readAsBytes();
-      final book = await EpubReader.readBook(bytes);
-      final cover = book.CoverImage;
-      Uint8List? coverBytes;
-      if (cover != null) {
-        coverBytes = img.encodePng(cover) as Uint8List?;
-      }
+Future<void> _loadCover(String filePath) async {
+  try {
+    final bytes = await File(filePath).readAsBytes();
+    final book = await EpubReader.readBook(bytes);
+    final cover = book.CoverImage;
+    if (cover != null) {
+      final coverBytes = await compute(_encodeImage, cover);
       if (mounted) {
-        setState(() {
-          bookCovers[filePath] = coverBytes;
-        });
+        setState(() => bookCovers[filePath] = coverBytes);
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          bookCovers[filePath] = null;
-        });
-      }
+    } else {
+      if (mounted) setState(() => bookCovers[filePath] = null);
     }
+  } catch (e) {
+    if (mounted) setState(() => bookCovers[filePath] = null);
   }
+}
 
   Future<void> pickBook() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -332,4 +328,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
     );
   }
+}
+
+Uint8List _encodeImage(img.Image image) {
+  return Uint8List.fromList(img.encodePng(image));
 }

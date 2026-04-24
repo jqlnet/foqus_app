@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         applicationId = "com.jqlne.foqus"
-        minSdk = flutter.minSdkVersion
+        minSdk = 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
