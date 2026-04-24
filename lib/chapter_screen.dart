@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:epubx/epubx.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'reader_screen.dart';
@@ -12,6 +13,7 @@ class ChapterScreen extends StatefulWidget {
   final Color textColor;
   final bool delayedMode;
   final bool sentenceMode;
+  final Uint8List? coverImage;
 
   const ChapterScreen({
     super.key,
@@ -21,6 +23,7 @@ class ChapterScreen extends StatefulWidget {
     required this.textColor,
     required this.delayedMode,
     required this.sentenceMode,
+    this.coverImage,
   });
 
   @override
@@ -197,6 +200,7 @@ class _ChapterScreenState extends State<ChapterScreen> {
                                 textColor: textColor,
                                 delayedMode: delayedMode,
                                 sentenceMode: sentenceMode,
+                                coverImage: widget.coverImage,
                               ),
                             ),
                           );

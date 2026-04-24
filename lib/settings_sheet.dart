@@ -10,12 +10,19 @@ class SettingsSheet extends StatefulWidget {
   final Color textColor;
   final bool delayedMode;
   final bool sentenceMode;
+  final double bgImageOpacity;
+  final bool useBgImage;
+  final bool hasCoverImage;
   final Function(int) onWpmChanged;
   final Function(Color) onBgColorChanged;
   final Function(Color) onOrpColorChanged;
   final Function(Color) onTextColorChanged;
   final Function(bool) onDelayedModeChanged;
   final Function(bool) onSentenceModeChanged;
+  final VoidCallback? onPickBgImage;
+  final VoidCallback? onUseBookCover;
+  final VoidCallback? onRemoveBgImage;
+  final Function(double)? onOpacityChanged;
 
   const SettingsSheet({
     super.key,
@@ -25,12 +32,19 @@ class SettingsSheet extends StatefulWidget {
     required this.textColor,
     required this.delayedMode,
     required this.sentenceMode,
+    this.bgImageOpacity = 0.3,
+    this.useBgImage = false,
+    this.hasCoverImage = false,
     required this.onWpmChanged,
     required this.onBgColorChanged,
     required this.onOrpColorChanged,
     required this.onTextColorChanged,
     required this.onDelayedModeChanged,
     required this.onSentenceModeChanged,
+    this.onPickBgImage,
+    this.onUseBookCover,
+    this.onRemoveBgImage,
+    this.onOpacityChanged,
   });
 
   @override
@@ -44,6 +58,8 @@ class _SettingsSheetState extends State<SettingsSheet> {
   late Color textColor;
   late bool delayedMode;
   late bool sentenceMode;
+  late double bgImageOpacity;
+  late bool useBgImage;
 
   @override
   void initState() {
@@ -54,6 +70,8 @@ class _SettingsSheetState extends State<SettingsSheet> {
     textColor = widget.textColor;
     delayedMode = widget.delayedMode;
     sentenceMode = widget.sentenceMode;
+    bgImageOpacity = widget.bgImageOpacity;
+    useBgImage = widget.useBgImage;
   }
 
   Future<void> saveSettings() async {
@@ -147,7 +165,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
               Text('Older EPUB Compatibility', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               SizedBox(height: 4),
               Text('Older EPUB files (pre-2010) may display chapter titles or text with minor formatting inconsistencies due to decorative styling used in older formats. The reading content itself is unaffected.', style: TextStyle(color: Colors.white70, fontSize: 13)),
-           ],
+            ],
           ),
         ),
         actions: [
@@ -162,188 +180,289 @@ class _SettingsSheetState extends State<SettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final showBgImageSection = widget.onPickBgImage != null;
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF121212),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-
-          // Title
-          const Text(
-            'SETTINGS',
-            style: TextStyle(
-              color: Color(0xFFE63946),
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 3,
+            const SizedBox(height: 20),
+            const Text(
+              'SETTINGS',
+              style: TextStyle(
+                color: Color(0xFFE63946),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 3,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // WPM Slider
-          Row(
-            children: [
-              const Text('WPM', style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Expanded(
-                child: Slider(
-                  value: wpm.toDouble(),
-                  min: 100,
-                  max: 1000,
-                  divisions: 900,
+            // WPM Slider
+            Row(
+              children: [
+                const Text('WPM', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                Expanded(
+                  child: Slider(
+                    value: wpm.toDouble(),
+                    min: 100,
+                    max: 1000,
+                    divisions: 900,
+                    activeColor: const Color(0xFFE63946),
+                    inactiveColor: Colors.white12,
+                    onChanged: (val) {
+                      setState(() => wpm = val.round());
+                      widget.onWpmChanged(wpm);
+                      saveSettings();
+                    },
+                  ),
+                ),
+                Text('$wpm', style: const TextStyle(color: Colors.white54, fontSize: 13)),
+              ],
+            ),
+
+            const Divider(color: Colors.white12),
+
+            // Reading Mode Toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Reading Mode', style: TextStyle(color: Colors.white, fontSize: 15)),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => sentenceMode = false);
+                        widget.onSentenceModeChanged(false);
+                        saveSettings();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: !sentenceMode ? const Color(0xFFE63946) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE63946)),
+                        ),
+                        child: Text(
+                          'Word',
+                          style: TextStyle(
+                            color: !sentenceMode ? Colors.white : const Color(0xFFE63946),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => sentenceMode = true);
+                        widget.onSentenceModeChanged(true);
+                        saveSettings();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: sentenceMode ? const Color(0xFFE63946) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE63946)),
+                        ),
+                        child: Text(
+                          'Sentence',
+                          style: TextStyle(
+                            color: sentenceMode ? Colors.white : const Color(0xFFE63946),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // Delayed Mode Toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('Delayed Mode', style: TextStyle(color: Colors.white, fontSize: 15)),
+                    Text('Slows down 8+ letter words', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ],
+                ),
+                Switch(
+                  value: delayedMode,
                   activeColor: const Color(0xFFE63946),
-                  inactiveColor: Colors.white12,
                   onChanged: (val) {
-                    setState(() => wpm = val.round());
-                    widget.onWpmChanged(wpm);
+                    setState(() => delayedMode = val);
+                    widget.onDelayedModeChanged(val);
                     saveSettings();
                   },
                 ),
+              ],
+            ),
+
+            const Divider(color: Colors.white12),
+
+            // Color Options
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(backgroundColor: bgColor, radius: 12),
+              title: const Text('Background Color', style: TextStyle(color: Colors.white)),
+              onTap: () => showColorPickerDialog('Background Color', bgColor, (c) {
+                bgColor = c;
+                widget.onBgColorChanged(c);
+              }),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(backgroundColor: orpColor, radius: 12),
+              title: const Text('Highlight Color', style: TextStyle(color: Colors.white)),
+              onTap: () => showColorPickerDialog('Highlight Color', orpColor, (c) {
+                orpColor = c;
+                widget.onOrpColorChanged(c);
+              }),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(backgroundColor: textColor, radius: 12),
+              title: const Text('Text Color', style: TextStyle(color: Colors.white)),
+              onTap: () => showColorPickerDialog('Text Color', textColor, (c) {
+                textColor = c;
+                widget.onTextColorChanged(c);
+              }),
+            ),
+
+            // Background Image Section — only shown in reader
+            if (showBgImageSection) ...[
+              const Divider(color: Colors.white12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Background Image',
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                ),
               ),
-              Text('$wpm', style: const TextStyle(color: Colors.white54, fontSize: 13)),
-            ],
-          ),
-
-          const Divider(color: Colors.white12),
-
-          // Reading Mode Toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Reading Mode', style: TextStyle(color: Colors.white, fontSize: 15)),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      setState(() => sentenceMode = false);
-                      widget.onSentenceModeChanged(false);
-                      saveSettings();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: !sentenceMode ? const Color(0xFFE63946) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE63946)),
-                      ),
-                      child: Text(
-                        'Word',
-                        style: TextStyle(
-                          color: !sentenceMode ? Colors.white : const Color(0xFFE63946),
-                          fontSize: 13,
-                        ),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onPickBgImage!();
+                      },
+                      icon: const Icon(Icons.photo, size: 16, color: Color(0xFFE63946)),
+                      label: const Text('From Phone', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() => sentenceMode = true);
-                      widget.onSentenceModeChanged(true);
-                      saveSettings();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: sentenceMode ? const Color(0xFFE63946) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE63946)),
-                      ),
-                      child: Text(
-                        'Sentence',
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.hasCoverImage && widget.onUseBookCover != null
+                          ? () {
+                              Navigator.pop(context);
+                              widget.onUseBookCover!();
+                            }
+                          : null,
+                      icon: Icon(Icons.book, size: 16, color: widget.hasCoverImage ? const Color(0xFFE63946) : Colors.white24),
+                      label: Text(
+                        'Book Cover',
                         style: TextStyle(
-                          color: sentenceMode ? Colors.white : const Color(0xFFE63946),
-                          fontSize: 13,
+                          color: widget.hasCoverImage ? Colors.white : Colors.white24,
+                          fontSize: 12,
                         ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: widget.hasCoverImage ? Colors.white24 : Colors.white12),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: useBgImage && widget.onRemoveBgImage != null
+                          ? () {
+                              setState(() => useBgImage = false);
+                              widget.onRemoveBgImage!();
+                            }
+                          : null,
+                      icon: Icon(Icons.hide_image, size: 16, color: useBgImage ? const Color(0xFFE63946) : Colors.white24),
+                      label: Text(
+                        'Remove',
+                        style: TextStyle(
+                          color: useBgImage ? Colors.white : Colors.white24,
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: useBgImage ? Colors.white24 : Colors.white12),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
                   ),
                 ],
               ),
+              if (useBgImage) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Text('Opacity', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Expanded(
+                      child: Slider(
+                        value: bgImageOpacity,
+                        min: 0.0,
+                        max: 1.0,
+                        activeColor: const Color(0xFFE63946),
+                        inactiveColor: Colors.white12,
+                        onChanged: (val) {
+                          setState(() => bgImageOpacity = val);
+                          widget.onOpacityChanged?.call(val);
+                        },
+                      ),
+                    ),
+                    Text('${(bgImageOpacity * 100).round()}%',
+                        style: const TextStyle(color: Colors.white54, fontSize: 13)),
+                  ],
+                ),
+              ],
             ],
-          ),
 
-          const SizedBox(height: 8),
+            const Divider(color: Colors.white12),
 
-          // Delayed Mode Toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Delayed Mode', style: TextStyle(color: Colors.white, fontSize: 15)),
-                  Text('Slows down 8+ letter words', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                ],
-              ),
-              Switch(
-                value: delayedMode,
-                activeColor: const Color(0xFFE63946),
-                onChanged: (val) {
-                  setState(() => delayedMode = val);
-                  widget.onDelayedModeChanged(val);
-                  saveSettings();
-                },
-              ),
-            ],
-          ),
+            // FAQ
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.help_outline, color: Colors.white54),
+              title: const Text('FAQ', style: TextStyle(color: Colors.white)),
+              onTap: showFaq,
+            ),
 
-          const Divider(color: Colors.white12),
-
-          // Color Options
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(backgroundColor: bgColor, radius: 12),
-            title: const Text('Background Color', style: TextStyle(color: Colors.white)),
-            onTap: () => showColorPickerDialog('Background Color', bgColor, (c) {
-              bgColor = c;
-              widget.onBgColorChanged(c);
-            }),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(backgroundColor: orpColor, radius: 12),
-            title: const Text('Highlight Color', style: TextStyle(color: Colors.white)),
-            onTap: () => showColorPickerDialog('Highlight Color', orpColor, (c) {
-              orpColor = c;
-              widget.onOrpColorChanged(c);
-            }),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(backgroundColor: textColor, radius: 12),
-            title: const Text('Text Color', style: TextStyle(color: Colors.white)),
-            onTap: () => showColorPickerDialog('Text Color', textColor, (c) {
-              textColor = c;
-              widget.onTextColorChanged(c);
-            }),
-          ),
-
-          const Divider(color: Colors.white12),
-
-          // FAQ
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.help_outline, color: Colors.white54),
-            title: const Text('FAQ', style: TextStyle(color: Colors.white)),
-            onTap: showFaq,
-          ),
-
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
