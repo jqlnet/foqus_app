@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'library_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -105,6 +106,43 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
   }
+
+Future<void> signInWithGoogle() async {
+  setState(() {
+    isLoading = true;
+    errorMessage = '';
+  });
+
+  try {
+    final googleSignIn = GoogleSignIn.instance;
+    final GoogleSignInAccount googleUser = await googleSignIn.authenticate();
+
+    final List<String> scopes = ['email', 'profile'];
+    final clientAuth = await googleUser.authorizationClient.authorizeScopes(scopes);
+
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleUser.authentication.idToken,
+      accessToken: clientAuth.accessToken,
+    );
+
+    await FirebaseAuth.instance.signInWithCredential(credential);
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LibraryScreen()),
+      );
+    }
+  } catch (e) {
+    setState(() {
+      errorMessage = 'Google Sign In failed. Please try again.';
+    });
+  } finally {
+    if (mounted) {
+      setState(() => isLoading = false);
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +253,49 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Divider with OR
+              Row(
+                children: const [
+                  Expanded(child: Divider(color: Colors.white12)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('OR', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ),
+                  Expanded(child: Divider(color: Colors.white12)),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Google Sign In button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isLoading ? null : signInWithGoogle,
+                  icon: Image.network(
+                    'https://www.google.com/favicon.ico',
+                    width: 20,
+                    height: 20,
+                  ),
+                  label: const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: Colors.white24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               Center(
                 child: GestureDetector(
                   onTap: () {
