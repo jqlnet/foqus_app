@@ -15,6 +15,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final passwordController = TextEditingController();
   bool isLogin = true;
   bool isLoading = false;
+  bool obscurePassword = true;
   String errorMessage = '';
 
   @override
@@ -193,7 +194,7 @@ Future<void> signInWithGoogle() async {
               const SizedBox(height: 24),
               TextField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: obscurePassword,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Password',
@@ -203,6 +204,14 @@ Future<void> signInWithGoogle() async {
                   ),
                   focusedBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFFE63946)),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.white38,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => obscurePassword = !obscurePassword),
                   ),
                 ),
               ),
